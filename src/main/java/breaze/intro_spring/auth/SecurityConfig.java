@@ -1,112 +1,112 @@
 package breaze.intro_spring.auth;
 
-// Importaciones de dependencias de seguridad y configuración
-import lombok.RequiredArgsConstructor; // Genera constructor con los campos requeridos
-import org.springframework.context.annotation.Bean; // Permite definir beans en el contexto de Spring
-import org.springframework.context.annotation.Configuration; // Marca la clase como configuración de Spring
-import org.springframework.security.authentication.AuthenticationManager; // Administra la autenticación
-import org.springframework.security.authentication.AuthenticationProvider; // Proveedor de autenticación
-import org.springframework.security.authentication.ProviderManager; // Implementación de AuthenticationManager
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider; // Proveedor basado en DAO
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity; // Habilita seguridad por métodos
-import org.springframework.security.config.annotation.web.builders.HttpSecurity; // Configura seguridad HTTP
-import org.springframework.security.config.http.SessionCreationPolicy; // Políticas de sesión
-import org.springframework.security.core.userdetails.UserDetailsService; // Servicio para cargar usuarios
-import org.springframework.security.crypto.password.PasswordEncoder; // Codificador de contraseñas
-import org.springframework.security.web.SecurityFilterChain; // Cadena de filtros de seguridad
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // Filtro de autenticación por usuario
-import org.springframework.web.cors.CorsConfiguration; // Configuración CORS
+// Importaciones necesarias para la configuración de seguridad
+import lombok.RequiredArgsConstructor; // Genera automáticamente el constructor con los campos marcados como 'final'
+import org.springframework.context.annotation.Bean; // Permite definir métodos que devuelven objetos gestionados por Spring
+import org.springframework.context.annotation.Configuration; // Indica que esta clase contiene configuración de Spring
+import org.springframework.security.authentication.AuthenticationManager; // Gestiona el proceso de autenticación
+import org.springframework.security.authentication.AuthenticationProvider; // Define cómo se realiza la autenticación
+import org.springframework.security.authentication.ProviderManager; // Implementación concreta de AuthenticationManager
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider; // Proveedor que usa datos de la base para autenticar
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity; // Permite usar anotaciones de seguridad en métodos
+import org.springframework.security.config.annotation.web.builders.HttpSecurity; // Permite configurar la seguridad de las peticiones HTTP
+import org.springframework.security.config.http.SessionCreationPolicy; // Define cómo se gestionan las sesiones
+import org.springframework.security.core.userdetails.UserDetailsService; // Servicio para obtener información de usuarios
+import org.springframework.security.crypto.password.PasswordEncoder; // Codifica y verifica contraseñas
+import org.springframework.security.web.SecurityFilterChain; // Cadena de filtros que procesan las peticiones
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // Filtro para autenticación por usuario y contraseña
+import org.springframework.web.cors.CorsConfiguration; // Configuración para permitir peticiones desde otros dominios
 import org.springframework.web.cors.CorsConfigurationSource; // Fuente de configuración CORS
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource; // Fuente CORS basada en URL
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource; // Fuente CORS basada en rutas URL
 import java.util.List; // Utilidad para listas
 
 /**
- * Configuración principal de seguridad para la aplicación.
- * Define la cadena de filtros, el proveedor de autenticación, el manager de autenticación y la configuración CORS.
- * La autorización por roles se gestiona mediante anotaciones @PreAuthorize en los controladores.
+ * Esta clase configura la seguridad de la aplicación.
+ * Aquí se definen los filtros, las reglas de acceso, el proveedor de autenticación y la configuración CORS.
+ * Los permisos por rol se asignan usando anotaciones (@PreAuthorize) en los controladores.
  */
-@Configuration // Indica que esta clase es de configuración de Spring
-@EnableMethodSecurity // Habilita @PreAuthorize y otras anotaciones de seguridad
-@RequiredArgsConstructor // Genera constructor con los campos finales
+@Configuration // Indica que esta clase es de configuración para Spring
+@EnableMethodSecurity // Permite usar anotaciones como @PreAuthorize en los métodos de los controladores
+@RequiredArgsConstructor // Genera el constructor con los campos 'final' automáticamente
 public class SecurityConfig {
-    /**
-     * Filtro JWT para validar tokens en cada petición.
-     */
+    // Filtro que valida el JWT en cada petición. Si el token es válido, permite el acceso.
     private final JwtAuthFilter jwtFilter;
-    /**
-     * Servicio para cargar detalles de usuario desde la base de datos.
-     */
+    // Servicio que obtiene los datos del usuario desde la base de datos.
     private final UserDetailsService uds;
-    /**
-     * Codificador de contraseñas (BCrypt).
-     */
+    // Codificador de contraseñas, por ejemplo BCrypt. Se usa para guardar y verificar contraseñas de forma segura.
     private final PasswordEncoder encoder;
 
     /**
-     * Define la cadena de filtros de seguridad y las reglas de acceso.
-     * Endpoints de login y registro son públicos, el resto requiere autenticación.
-     * La autorización por roles se gestiona con @PreAuthorize en los controladores.
-     * @param http objeto de configuración de seguridad HTTP
-     * @return SecurityFilterChain configurada
-     * @throws Exception si ocurre un error en la configuración
+     * Configura la cadena de filtros de seguridad y las reglas de acceso.
+     * - Desactiva CSRF porque no se usa en APIs REST.
+     * - Configura CORS para permitir peticiones desde el frontend.
+     * - Define que no se usan sesiones (stateless).
+     * - Permite el acceso público a login y registro.
+     * - El resto de endpoints requieren autenticación.
+     * - Los permisos por rol se asignan en los controladores con @PreAuthorize.
      */
-    @Bean // Define un bean gestionado por Spring
+    @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // Configura la seguridad HTTP
         return http
-                .csrf(csrf -> csrf.disable()) // Deshabilita CSRF (no necesario para APIs REST)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Configura CORS
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Sin sesiones, API stateless
+                .csrf(csrf -> csrf.disable()) // Desactiva la protección CSRF (no necesaria para APIs REST)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Aplica la configuración CORS definida abajo
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // No se usan sesiones, cada petición se valida por sí sola
                 .authorizeHttpRequests(auth -> auth
-                        // Endpoints públicos (sin autenticación requerida)
-                        .requestMatchers("/auth/login", "/auth/register").permitAll() // Permite login y registro
-                        .requestMatchers("/micro/auth/login", "/micro/auth/register").permitAll() // Permite login y registro alternativo
-                        // Todos los demás endpoints requieren autenticación
-                        // La autorización por roles se maneja con @PreAuthorize en los controladores
-                        .anyRequest().authenticated() // Requiere autenticación para el resto
+                        // Permite el acceso sin autenticación a los endpoints de login y registro
+                        .requestMatchers("/auth/login", "/auth/register").permitAll()
+                        // El resto de endpoints requieren autenticación
+                        .anyRequest().authenticated()
                 )
-                .authenticationProvider(authenticationProvider()) // Usa el proveedor de autenticación definido
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class) // Agrega el filtro JWT antes del filtro de usuario
-                .build(); // Construye la cadena de filtros
+                // Usa el proveedor de autenticación definido abajo
+                .authenticationProvider(authenticationProvider())
+                // Agrega el filtro JWT antes del filtro estándar de usuario/contraseña
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .build(); // Construye y retorna la cadena de filtros
     }
 
     /**
-     * Define el proveedor de autenticación usando el servicio de usuarios y el codificador de contraseñas.
-     * @return AuthenticationProvider configurado
+     * Define el proveedor de autenticación.
+     * Este proveedor usa el servicio de usuarios y el codificador de contraseñas para validar credenciales.
      */
-    @Bean // Define un bean gestionado por Spring
+    @Bean
     AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(); // Proveedor basado en DAO
-        provider.setUserDetailsService(uds); // Usa el servicio de usuarios
-        provider.setPasswordEncoder(encoder); // Usa el codificador de contraseñas
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(); // Proveedor que usa la base de datos para autenticar
+        provider.setUserDetailsService(uds); // Usa el servicio para obtener los datos del usuario
+        provider.setPasswordEncoder(encoder); // Usa el codificador para verificar la contraseña
         return provider; // Retorna el proveedor configurado
     }
 
     /**
-     * Define el manager de autenticación que utiliza el proveedor configurado.
-     * @return AuthenticationManager configurado
+     * Define el manager de autenticación.
+     * El manager usa el proveedor de autenticación para procesar los intentos de login.
      */
-    @Bean // Define un bean gestionado por Spring
+    @Bean
     AuthenticationManager authenticationManager() {
-        return new ProviderManager(authenticationProvider()); // Usa el proveedor de autenticación
+        return new ProviderManager(authenticationProvider()); // Usa el proveedor definido arriba
     }
 
     /**
-     * Configuración de CORS para permitir peticiones desde el frontend.
-     * Ajusta los orígenes, métodos y cabeceras permitidas.
-     * @return CorsConfigurationSource configurada
+     * Configura CORS para permitir peticiones desde el frontend (por ejemplo, React o Angular).
+     * Aquí se definen los orígenes, métodos y cabeceras permitidas.
      */
-    @Bean // Define un bean gestionado por Spring
+    @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration(); // Crea la configuración CORS
-        cfg.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:4200", "http://127.0.0.1:3000")); // Orígenes permitidos
-        cfg.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS")); // Métodos permitidos
-        cfg.setAllowedHeaders(List.of("Authorization","Content-Type","Accept")); // Cabeceras permitidas
-        cfg.setExposedHeaders(List.of("Authorization")); // Cabeceras expuestas
-        cfg.setAllowCredentials(true); // Permite credenciales
-        cfg.setMaxAge(3600L); // Tiempo de cacheo de CORS
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource(); // Fuente basada en URL
-        source.registerCorsConfiguration("/**", cfg); // Aplica la configuración a todas las rutas
-        return source; // Retorna la fuente de configuración
+        // Permite peticiones desde estos orígenes (URLs del frontend)
+        cfg.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:4200", "http://127.0.0.1:3000"));
+        // Permite estos métodos HTTP
+        cfg.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+        // Permite estas cabeceras en las peticiones
+        cfg.setAllowedHeaders(List.of("Authorization","Content-Type","Accept"));
+        // Expone la cabecera Authorization en las respuestas
+        cfg.setExposedHeaders(List.of("Authorization"));
+        // Permite enviar credenciales (cookies, tokens)
+        cfg.setAllowCredentials(true);
+        // Define cuánto tiempo se cachea la configuración CORS en el navegador
+        cfg.setMaxAge(3600L);
+        // Aplica la configuración a todas las rutas de la API
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", cfg);
+        return source;
     }
 }
