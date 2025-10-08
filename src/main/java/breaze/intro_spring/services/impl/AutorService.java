@@ -126,4 +126,9 @@ public class AutorService implements IAutorService {
         return autorRepository.findByNombreContainingIgnoreCase(text);
     }
 
+    @Override
+    public boolean existeAutor(Long id) {
+        return this.autorRepository.existsById(id);
+    }
+
 }

@@ -1,8 +1,11 @@
 package breaze.intro_spring.controllers;
 
+import breaze.intro_spring.dto.CrearLibroInDTO;
+import breaze.intro_spring.dto.CrearLibroOutDTO;
 import breaze.intro_spring.entidades.Libro;
 import breaze.intro_spring.services.ILibroService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,12 +33,13 @@ public class LibroController {
 
     /**
      * Crea un nuevo libro.
-     * @param libro datos del libro a crear
+     * @param  crearLibroInDTO del libro a crear
      * @return ResponseEntity con el libro creado
      */
     @PostMapping("/crear")
-    public ResponseEntity<Libro> crearAutor(@RequestBody Libro libro) {
-        return ResponseEntity.ok(this.libroService.crearLibro(libro));
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CrearLibroOutDTO> crearLibro(@RequestBody CrearLibroInDTO crearLibroInDTO) {
+        return ResponseEntity.ok(this.libroService.crearLibro(crearLibroInDTO));
     }
 
     /**

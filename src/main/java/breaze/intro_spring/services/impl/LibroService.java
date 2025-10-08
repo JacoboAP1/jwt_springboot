@@ -1,12 +1,24 @@
 package breaze.intro_spring.services.impl;
 
+import breaze.intro_spring.dto.CrearLibroInDTO;
+import breaze.intro_spring.dto.CrearLibroOutDTO;
+import breaze.intro_spring.dto.LibroCategoriaDTO;
+import breaze.intro_spring.entidades.Autor;
+import breaze.intro_spring.entidades.Categoria;
 import breaze.intro_spring.entidades.Libro;
+import breaze.intro_spring.entidades.LibroCategoria;
 import breaze.intro_spring.repositorios.LibroRepository;
+import breaze.intro_spring.services.IAutorService;
+import breaze.intro_spring.services.ICategoriaService;
+import breaze.intro_spring.services.ILibroCategoriaService;
 import breaze.intro_spring.services.ILibroService;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Implementación del servicio de libros.
@@ -19,23 +31,52 @@ public class LibroService implements ILibroService {
      * Repositorio para la gestión de libros en la base de datos.
      */
     private final LibroRepository libroRepository;
-
+    private final IAutorService autorService;
+    private final ICategoriaService categoriaService;
+    private final ILibroCategoriaService libroCategoriaService;
     /**
      * Constructor que inyecta el repositorio de libros.
      * @param libroRepository repositorio de libros
      */
-    public LibroService(LibroRepository libroRepository) {
+    public LibroService(LibroRepository libroRepository, IAutorService autorService, ICategoriaService categoriaService, ILibroCategoriaService libroCategoriaService) {
+        this.libroCategoriaService = libroCategoriaService;
+        this.categoriaService = categoriaService;
+        this.autorService = autorService;
         this.libroRepository = libroRepository;
     }
 
     /**
      * Crea un nuevo libro.
-     * @param libro datos del libro a crear
+     * @param crearLibroInDTO datos del libro a crear
      * @return libro creado
      */
     @Override
-    public Libro crearLibro(Libro libro) {
-        return this.libroRepository.save(libro);
+    public CrearLibroOutDTO crearLibro(CrearLibroInDTO crearLibroInDTO) {
+        CrearLibroOutDTO crearLibroOutDTO = new CrearLibroOutDTO();
+        if(!this.autorService.existeAutor(crearLibroInDTO.getAutor())) {
+            crearLibroOutDTO.setMensajeError("No existe el autor ingresado");
+            return crearLibroOutDTO;
+        }
+        if (!validarExistenciCategorias(crearLibroInDTO.getCategorias())) {
+            crearLibroOutDTO.setMensajeError("Alguna de las categorias ingresadas no existe");
+            return crearLibroOutDTO;
+        }
+        Libro libro = new Libro();
+        libro.setTitulo(crearLibroInDTO.getTitulo());
+        libro.setAnioPublicacion(crearLibroInDTO.getAnioPublicacion());
+        Autor autor = new Autor();
+        autor.setId(crearLibroInDTO.getAutor());
+        libro.setAutor(autor);
+        Libro libroCreado = this.libroRepository.save(libro);
+        if (libroCreado.getId() != null) {
+            Set<LibroCategoria> libroCategorias = crearLibroInDTO.getCategorias().stream().map(libroCategoriaDTO -> {
+                return libroCategoriaDTOToEntity(libroCategoriaDTO, libroCreado.getId());
+            }).collect(Collectors.toSet());
+            libroCreado.setLibroCategorias(libroCategorias);
+            this.libroCategoriaService.crearLibroCategoriaBatch(libroCategorias);
+            crearLibroOutDTO.setExitoso(true);
+        }
+        return crearLibroOutDTO;
     }
 
     /**
@@ -69,5 +110,30 @@ public class LibroService implements ILibroService {
                     }
                     return libroRepository.save(existingLibro);
                 });
+    }
+
+    private LibroCategoria libroCategoriaDTOToEntity(LibroCategoriaDTO dto, Long idLibro) {
+        if (dto == null) return null;
+        LibroCategoria libroCategoria = new LibroCategoria();
+        Libro libro = new Libro();
+        libro.setId(idLibro);
+        libroCategoria.setLibro(libro);
+        Categoria categoria = new Categoria();
+        categoria.setId(dto.getCategoria());
+        libroCategoria.setCategoria(categoria);
+        libroCategoria.setPrioridad(dto.getPrioridad());
+        libroCategoria.setAddedAt(LocalDateTime.now());
+        libroCategoria.setComentario(dto.getComentario());
+        return libroCategoria;
+    }
+
+    private boolean validarExistenciCategorias(Set<LibroCategoriaDTO> categorias) {
+        int noExistentes = 0;
+        for (LibroCategoriaDTO categoria : categorias) {
+            if (!this.categoriaService.validarExistenciaCategoria(categoria.getCategoria())) {
+                noExistentes++;
+            }
+        }
+        return noExistentes == 0;
     }
 }

@@ -13,4 +13,5 @@ public interface IAutorService {
     public Optional<Autor> actualizacionParcial(Long id, Autor autor);
     public Integer contarAutoresPorNacionalidad(String nacionalidad);
     public List<Autor> buscarAutoresPorTexto(String text);
+    public boolean existeAutor(Long id);
 }
